@@ -988,6 +988,20 @@ body {
     color: var(--text-primary);
 }
 
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    opacity: 0.5;
+}
+
+.app-footer span {
+    color: var(--primary);
+    font-weight: 500;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .summary {
