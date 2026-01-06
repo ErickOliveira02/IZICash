@@ -215,6 +215,13 @@ class SupabaseClient {
         return data.length > 0 ? data[0] : null;
     }
 
+    async getEmailByUsername(username) {
+        // Busca por username ou usercode (case insensitive)
+        const lower = username.toLowerCase();
+        const data = await this.request('users', 'GET', `?or=(username.ilike.${lower},usercode.ilike.${lower})&select=email`);
+        return data.length > 0 ? data[0].email : null;
+    }
+
     async createUserProfile(authId, email, username) {
         const data = await this.request('users', 'POST', '', {
             auth_id: authId,

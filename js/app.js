@@ -117,10 +117,10 @@ class ZenyApp {
     // ========== AUTENTICAÇÃO ==========
 
     async login() {
-        const email = document.getElementById('loginEmail').value.trim();
+        const identifier = document.getElementById('loginIdentifier').value.trim();
         const password = document.getElementById('loginPassword').value;
 
-        if (!email || !password) {
+        if (!identifier || !password) {
             this.showToast('Preencha todos os campos', 'error');
             return;
         }
@@ -128,6 +128,16 @@ class ZenyApp {
         this.showLoading();
 
         try {
+            let email = identifier;
+
+            // Se não tiver @, é username - busca o email
+            if (!identifier.includes('@')) {
+                email = await supabase.getEmailByUsername(identifier);
+                if (!email) {
+                    throw new Error('Usuário não encontrado');
+                }
+            }
+
             const data = await supabase.signIn(email, password);
             await this.handleAuthSuccess(data.user);
             this.showToast('Login realizado!', 'success');
