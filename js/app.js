@@ -789,4 +789,66 @@ class IZICashApp {
 let app;
 document.addEventListener('DOMContentLoaded', () => {
     app = new IZICashApp();
+
+    // Iniciar verificação de versão
+    VersionChecker.init();
 });
+
+// =============================================
+// Sistema de Verificação de Versão
+// =============================================
+
+const VersionChecker = {
+    VERSION_KEY: 'izi_app_version',
+    CHECK_INTERVAL: 60000, // Verifica a cada 60 segundos
+
+    init() {
+        // Verificar imediatamente
+        this.checkVersion();
+
+        // Verificar periodicamente
+        setInterval(() => this.checkVersion(), this.CHECK_INTERVAL);
+
+        // Verificar quando a janela ganha foco (voltou pro app)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                this.checkVersion();
+            }
+        });
+    },
+
+    async checkVersion() {
+        try {
+            // Busca o version.json com cache bust
+            const response = await fetch(`version.json?t=${Date.now()}`);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const newVersion = data.version;
+            const savedVersion = localStorage.getItem(this.VERSION_KEY);
+
+            // Primeira vez - salva a versão atual
+            if (!savedVersion) {
+                localStorage.setItem(this.VERSION_KEY, newVersion);
+                return;
+            }
+
+            // Se a versão mudou, mostra o modal
+            if (savedVersion !== newVersion) {
+                this.showUpdateModal();
+                // Atualiza a versão salva para não mostrar novamente
+                localStorage.setItem(this.VERSION_KEY, newVersion);
+            }
+        } catch (error) {
+            // Silenciosamente ignora erros de rede
+            console.log('Verificação de versão falhou:', error);
+        }
+    },
+
+    showUpdateModal() {
+        const modal = document.getElementById('updateModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
+    }
+};

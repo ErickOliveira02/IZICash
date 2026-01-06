@@ -134,6 +134,17 @@
         </div>
     </div>
 
+    <!-- Modal: Nova Versão -->
+    <div class="update-modal hidden" id="updateModal">
+        <div class="update-content">
+            <div class="update-icon">🚀</div>
+            <h2>Nova Versão Disponível!</h2>
+            <p>Uma atualização do IZI Cash está pronta.</p>
+            <button class="btn-primary" onclick="location.reload(true)">Atualizar Agora</button>
+            <button class="btn-later" onclick="document.getElementById('updateModal').classList.add('hidden')">Depois</button>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="js/config.js"></script>
     <script src="js/supabase.js"></script>
