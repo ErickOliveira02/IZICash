@@ -4,7 +4,8 @@
 
 class IZICashApp {
     constructor() {
-        this.user = null;
+        this.authUser = null;  // Usuário do Supabase Auth
+        this.user = null;      // Perfil do usuário na tabela users
         this.blocks = [];
         this.fixedExpenses = {};
         this.payments = {};
@@ -16,25 +17,33 @@ class IZICashApp {
 
     // ========== INICIALIZAÇÃO ==========
 
-    init() {
-        // Verificar se já está logado
-        const savedUsercode = localStorage.getItem('izi_usercode');
-        if (savedUsercode) {
-            this.login(savedUsercode);
-        }
-
-        // Event listeners
+    async init() {
         this.setupEventListeners();
+
+        // Verificar se já está logado
+        const session = await supabase.getSession();
+        if (session && session.user) {
+            await this.handleAuthSuccess(session.user);
+        }
     }
 
     setupEventListeners() {
         // Login
         document.getElementById('loginForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
-            const usercode = document.getElementById('usercodeInput').value.trim().toLowerCase();
-            if (usercode) {
-                this.login(usercode);
-            }
+            this.login();
+        });
+
+        // Cadastro
+        document.getElementById('registerForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.register();
+        });
+
+        // Recuperar senha
+        document.getElementById('forgotForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.forgotPassword();
         });
 
         // Navegação do mês
@@ -66,39 +75,157 @@ class IZICashApp {
         });
     }
 
+    // ========== NAVEGAÇÃO DE TELAS ==========
+
+    showLogin() {
+        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('registerScreen').classList.add('hidden');
+        document.getElementById('forgotScreen').classList.add('hidden');
+        document.getElementById('verifyScreen').classList.add('hidden');
+    }
+
+    showRegister() {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('registerScreen').classList.remove('hidden');
+        document.getElementById('forgotScreen').classList.add('hidden');
+        document.getElementById('verifyScreen').classList.add('hidden');
+    }
+
+    showForgotPassword() {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('registerScreen').classList.add('hidden');
+        document.getElementById('forgotScreen').classList.remove('hidden');
+        document.getElementById('verifyScreen').classList.add('hidden');
+    }
+
+    showVerifyEmail(email) {
+        document.getElementById('verifyEmailText').textContent = email;
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('registerScreen').classList.add('hidden');
+        document.getElementById('forgotScreen').classList.add('hidden');
+        document.getElementById('verifyScreen').classList.remove('hidden');
+    }
+
+    showApp() {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('registerScreen').classList.add('hidden');
+        document.getElementById('forgotScreen').classList.add('hidden');
+        document.getElementById('verifyScreen').classList.add('hidden');
+        document.getElementById('appScreen').classList.remove('hidden');
+    }
+
     // ========== AUTENTICAÇÃO ==========
 
-    async login(usercode) {
+    async login() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+
+        if (!email || !password) {
+            this.showToast('Preencha todos os campos', 'error');
+            return;
+        }
+
+        this.showLoading();
+
         try {
-            this.showLoading();
-
-            const { user, isNewUser } = await supabase.getOrCreateUser(usercode);
-            this.user = user;
-            localStorage.setItem('izi_usercode', usercode);
-
-            await this.loadData();
-
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('appScreen').classList.remove('hidden');
-
-            // Se não tem blocos, mostra setup
-            if (this.blocks.length === 0) {
-                this.showSetupScreen();
-                this.showToast('Bem-vindo! Configure seus blocos de entrada.', 'success');
-            } else {
-                this.hideSetupScreen();
-                this.render();
-                this.showToast(`Olá, ${usercode}!`, 'success');
-            }
+            const data = await supabase.signIn(email, password);
+            await this.handleAuthSuccess(data.user);
+            this.showToast('Login realizado!', 'success');
         } catch (error) {
             console.error('Erro no login:', error);
-            this.showToast('Erro ao conectar. Verifique suas credenciais do Supabase.', 'error');
+            this.showToast(error.message || 'Erro ao fazer login', 'error');
+        } finally {
             this.hideLoading();
         }
     }
 
-    logout() {
-        localStorage.removeItem('izi_usercode');
+    async register() {
+        const username = document.getElementById('registerUsername').value.trim();
+        const email = document.getElementById('registerEmail').value.trim();
+        const password = document.getElementById('registerPassword').value;
+        const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+
+        if (!username || !email || !password) {
+            this.showToast('Preencha todos os campos', 'error');
+            return;
+        }
+
+        if (password !== passwordConfirm) {
+            this.showToast('As senhas não coincidem', 'error');
+            return;
+        }
+
+        if (password.length < 6) {
+            this.showToast('A senha deve ter no mínimo 6 caracteres', 'error');
+            return;
+        }
+
+        this.showLoading();
+
+        try {
+            const data = await supabase.signUp(email, password, username);
+
+            // Verifica se precisa confirmar email
+            if (data.user && !data.user.confirmed_at) {
+                this.showVerifyEmail(email);
+                this.showToast('Cadastro realizado! Verifique seu email.', 'success');
+            } else if (data.user) {
+                // Já confirmado (ex: email auto-confirm habilitado)
+                await this.handleAuthSuccess(data.user);
+                this.showToast('Cadastro realizado!', 'success');
+            }
+        } catch (error) {
+            console.error('Erro no cadastro:', error);
+            this.showToast(error.message || 'Erro ao cadastrar', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async forgotPassword() {
+        const email = document.getElementById('forgotEmail').value.trim();
+
+        if (!email) {
+            this.showToast('Digite seu email', 'error');
+            return;
+        }
+
+        this.showLoading();
+
+        try {
+            await supabase.resetPassword(email);
+            this.showToast('Email enviado! Verifique sua caixa de entrada.', 'success');
+            this.showLogin();
+        } catch (error) {
+            console.error('Erro ao recuperar senha:', error);
+            this.showToast(error.message || 'Erro ao enviar email', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    async handleAuthSuccess(authUser) {
+        this.authUser = authUser;
+
+        // Pega ou cria perfil do usuário
+        const username = authUser.user_metadata?.username || authUser.email.split('@')[0];
+        this.user = await supabase.getOrCreateUserProfile(authUser.id, authUser.email, username);
+
+        await this.loadData();
+        this.showApp();
+
+        // Se não tem blocos, mostra setup
+        if (this.blocks.length === 0) {
+            this.showSetupScreen();
+        } else {
+            this.hideSetupScreen();
+            this.render();
+        }
+    }
+
+    async logout() {
+        await supabase.signOut();
+        this.authUser = null;
         this.user = null;
         this.blocks = [];
         this.fixedExpenses = {};
@@ -106,8 +233,11 @@ class IZICashApp {
         this.transactions = {};
 
         document.getElementById('appScreen').classList.add('hidden');
-        document.getElementById('loginScreen').classList.remove('hidden');
-        document.getElementById('usercodeInput').value = '';
+        this.showLogin();
+
+        // Limpar campos
+        document.getElementById('loginEmail').value = '';
+        document.getElementById('loginPassword').value = '';
     }
 
     // ========== SETUP INICIAL ==========
@@ -772,11 +902,11 @@ class IZICashApp {
     }
 
     showLoading() {
-        // Implementar se necessário
+        document.getElementById('loadingOverlay')?.classList.remove('hidden');
     }
 
     hideLoading() {
-        // Implementar se necessário
+        document.getElementById('loadingOverlay')?.classList.add('hidden');
     }
 }
 

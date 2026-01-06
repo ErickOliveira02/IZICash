@@ -13,17 +13,110 @@
         <div class="login-box">
             <h1>IZI Cash</h1>
             <p>Controle financeiro simples</p>
+
+            <!-- Form de Login -->
             <form id="loginForm">
                 <input
-                    type="text"
-                    id="usercodeInput"
-                    placeholder="Digite seu código"
-                    autocomplete="off"
+                    type="email"
+                    id="loginEmail"
+                    placeholder="Email"
+                    autocomplete="email"
                     required
                 >
-                <button type="submit">Entrar</button>
+                <input
+                    type="password"
+                    id="loginPassword"
+                    placeholder="Senha"
+                    autocomplete="current-password"
+                    required
+                >
+                <button type="submit" class="btn-primary">Entrar</button>
             </form>
-            <small class="login-hint">Ex: erick, maria, joao123</small>
+
+            <div class="auth-divider">
+                <span>ou</span>
+            </div>
+
+            <button class="btn-secondary" onclick="app.showRegister()">Criar Conta</button>
+
+            <button class="btn-link" onclick="app.showForgotPassword()">Esqueci minha senha</button>
+        </div>
+    </div>
+
+    <!-- Tela de Cadastro -->
+    <div id="registerScreen" class="login-screen hidden">
+        <div class="login-box">
+            <h1>Criar Conta</h1>
+            <p>Preencha seus dados</p>
+
+            <form id="registerForm">
+                <input
+                    type="text"
+                    id="registerUsername"
+                    placeholder="Username (apelido)"
+                    autocomplete="username"
+                    required
+                >
+                <input
+                    type="email"
+                    id="registerEmail"
+                    placeholder="Email"
+                    autocomplete="email"
+                    required
+                >
+                <input
+                    type="password"
+                    id="registerPassword"
+                    placeholder="Senha (mínimo 6 caracteres)"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                >
+                <input
+                    type="password"
+                    id="registerPasswordConfirm"
+                    placeholder="Confirmar senha"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                >
+                <button type="submit" class="btn-primary">Cadastrar</button>
+            </form>
+
+            <button class="btn-link" onclick="app.showLogin()">Já tenho conta</button>
+        </div>
+    </div>
+
+    <!-- Tela de Recuperar Senha -->
+    <div id="forgotScreen" class="login-screen hidden">
+        <div class="login-box">
+            <h1>Recuperar Senha</h1>
+            <p>Digite seu email para receber o link de recuperação</p>
+
+            <form id="forgotForm">
+                <input
+                    type="email"
+                    id="forgotEmail"
+                    placeholder="Email"
+                    autocomplete="email"
+                    required
+                >
+                <button type="submit" class="btn-primary">Enviar Link</button>
+            </form>
+
+            <button class="btn-link" onclick="app.showLogin()">Voltar ao login</button>
+        </div>
+    </div>
+
+    <!-- Tela de Verificação de Email -->
+    <div id="verifyScreen" class="login-screen hidden">
+        <div class="login-box">
+            <div class="verify-icon">📧</div>
+            <h1>Verifique seu Email</h1>
+            <p>Enviamos um link de confirmação para:</p>
+            <p class="verify-email" id="verifyEmailText">email@exemplo.com</p>
+            <p class="verify-hint">Clique no link do email para ativar sua conta.</p>
+            <button class="btn-secondary" onclick="app.showLogin()">Voltar ao Login</button>
         </div>
     </div>
 
@@ -146,6 +239,11 @@
             <button class="btn-primary" onclick="location.reload(true)">Atualizar Agora</button>
             <button class="btn-later" onclick="document.getElementById('updateModal').classList.add('hidden')">Depois</button>
         </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-spinner"></div>
     </div>
 
     <!-- Scripts -->

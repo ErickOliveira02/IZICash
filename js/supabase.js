@@ -12,13 +12,28 @@ class SupabaseClient {
             'Content-Type': 'application/json',
             'Prefer': 'return=representation'
         };
+        this.accessToken = null;
+    }
+
+    getHeaders() {
+        const headers = {
+            'apikey': this.key,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        };
+        if (this.accessToken) {
+            headers['Authorization'] = `Bearer ${this.accessToken}`;
+        } else {
+            headers['Authorization'] = `Bearer ${this.key}`;
+        }
+        return headers;
     }
 
     async request(table, method = 'GET', query = '', body = null) {
         const url = `${this.url}/rest/v1/${table}${query}`;
         const options = {
             method,
-            headers: this.headers
+            headers: this.getHeaders()
         };
 
         if (body) {
@@ -39,26 +54,183 @@ class SupabaseClient {
         return response.json();
     }
 
-    // ========== USERS ==========
+    // ========== AUTENTICAÇÃO ==========
 
-    async getUserByCode(usercode) {
-        const data = await this.request('users', 'GET', `?usercode=eq.${usercode}&select=*`);
+    async signUp(email, password, username) {
+        const response = await fetch(`${this.url}/auth/v1/signup`, {
+            method: 'POST',
+            headers: {
+                'apikey': this.key,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email,
+                password,
+                data: { username }
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error_description || data.msg || 'Erro ao cadastrar');
+        }
+
+        return data;
+    }
+
+    async signIn(email, password) {
+        const response = await fetch(`${this.url}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: {
+                'apikey': this.key,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email,
+                password
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error_description || data.msg || 'Email ou senha incorretos');
+        }
+
+        // Salvar token
+        this.accessToken = data.access_token;
+        localStorage.setItem('izi_access_token', data.access_token);
+        localStorage.setItem('izi_refresh_token', data.refresh_token);
+
+        return data;
+    }
+
+    async signOut() {
+        const token = localStorage.getItem('izi_access_token');
+        if (token) {
+            try {
+                await fetch(`${this.url}/auth/v1/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': this.key,
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            } catch (e) {
+                // Ignora erros de logout
+            }
+        }
+
+        this.accessToken = null;
+        localStorage.removeItem('izi_access_token');
+        localStorage.removeItem('izi_refresh_token');
+        localStorage.removeItem('izi_user');
+    }
+
+    async resetPassword(email) {
+        const response = await fetch(`${this.url}/auth/v1/recover`, {
+            method: 'POST',
+            headers: {
+                'apikey': this.key,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email
+            })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error_description || data.msg || 'Erro ao enviar email');
+        }
+
+        return true;
+    }
+
+    async getSession() {
+        const token = localStorage.getItem('izi_access_token');
+        if (!token) return null;
+
+        this.accessToken = token;
+
+        try {
+            const response = await fetch(`${this.url}/auth/v1/user`, {
+                headers: {
+                    'apikey': this.key,
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                // Token inválido, tenta refresh
+                return await this.refreshSession();
+            }
+
+            const user = await response.json();
+            return { user };
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async refreshSession() {
+        const refreshToken = localStorage.getItem('izi_refresh_token');
+        if (!refreshToken) return null;
+
+        try {
+            const response = await fetch(`${this.url}/auth/v1/token?grant_type=refresh_token`, {
+                method: 'POST',
+                headers: {
+                    'apikey': this.key,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    refresh_token: refreshToken
+                })
+            });
+
+            if (!response.ok) {
+                this.signOut();
+                return null;
+            }
+
+            const data = await response.json();
+            this.accessToken = data.access_token;
+            localStorage.setItem('izi_access_token', data.access_token);
+            localStorage.setItem('izi_refresh_token', data.refresh_token);
+
+            return { user: data.user };
+        } catch (error) {
+            this.signOut();
+            return null;
+        }
+    }
+
+    // ========== USERS (perfil local) ==========
+
+    async getUserByAuthId(authId) {
+        const data = await this.request('users', 'GET', `?auth_id=eq.${authId}&select=*`);
         return data.length > 0 ? data[0] : null;
     }
 
-    async createUser(usercode) {
-        const data = await this.request('users', 'POST', '', { usercode });
+    async createUserProfile(authId, email, username) {
+        const data = await this.request('users', 'POST', '', {
+            auth_id: authId,
+            email,
+            username,
+            usercode: username.toLowerCase()
+        });
         return data[0];
     }
 
-    async getOrCreateUser(usercode) {
-        let user = await this.getUserByCode(usercode);
-        let isNewUser = false;
+    async getOrCreateUserProfile(authId, email, username) {
+        let user = await this.getUserByAuthId(authId);
         if (!user) {
-            user = await this.createUser(usercode);
-            isNewUser = true;
+            user = await this.createUserProfile(authId, email, username);
         }
-        return { user, isNewUser };
+        return user;
     }
 
     // ========== INCOME BLOCKS ==========
