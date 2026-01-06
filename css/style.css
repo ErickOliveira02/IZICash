@@ -439,6 +439,103 @@ body {
     border-top: 1px solid var(--border);
 }
 
+.transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.transactions-header h3 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.btn-add-expense {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-add-expense:hover {
+    background: var(--primary-dark);
+}
+
+/* Quick Add Form */
+.quick-add-form {
+    background: var(--bg-input);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quick-input-value {
+    flex: 0 0 100px;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.quick-input-desc {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.quick-input-value:focus,
+.quick-input-desc:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.quick-add-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-quick-save {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-quick-save:hover {
+    background: var(--primary-dark);
+}
+
+.btn-quick-cancel {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--danger);
+    color: white;
+    cursor: pointer;
+}
+
 .transactions-section h3 {
     font-size: 0.85rem;
     color: var(--text-secondary);

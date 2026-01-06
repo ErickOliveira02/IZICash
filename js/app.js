@@ -367,7 +367,20 @@ class IZICashApp {
                     </div>
 
                     <div class="transactions-section">
-                        <h3>Gastos Variáveis</h3>
+                        <div class="transactions-header">
+                            <h3>Gastos Variáveis</h3>
+                            <button class="btn-add-expense" onclick="app.openQuickAdd('${block.id}')">+ Gasto</button>
+                        </div>
+
+                        <div class="quick-add-form hidden" id="quickAdd-${block.id}">
+                            <input type="number" step="0.01" placeholder="Valor" id="quickValue-${block.id}" class="quick-input-value">
+                            <input type="text" placeholder="Descrição (opcional)" id="quickDesc-${block.id}" class="quick-input-desc">
+                            <div class="quick-add-buttons">
+                                <button class="btn-quick-save" onclick="app.saveQuickExpense('${block.id}')">Salvar</button>
+                                <button class="btn-quick-cancel" onclick="app.closeQuickAdd('${block.id}')">X</button>
+                            </div>
+                        </div>
+
                         ${transactions.length === 0 ? '<p class="empty-text">Nenhum gasto registrado</p>' : ''}
                         ${transactions.map(t => `
                             <div class="transaction-item">
@@ -447,6 +460,70 @@ class IZICashApp {
         } catch (error) {
             console.error('Erro ao excluir:', error);
             this.showToast('Erro ao excluir', 'error');
+        }
+    }
+
+    // ========== GASTO RÁPIDO ==========
+
+    openQuickAdd(blockId) {
+        // Fecha outros forms abertos
+        document.querySelectorAll('.quick-add-form').forEach(form => {
+            form.classList.add('hidden');
+        });
+
+        // Abre o form deste bloco
+        const form = document.getElementById(`quickAdd-${blockId}`);
+        if (form) {
+            form.classList.remove('hidden');
+            document.getElementById(`quickValue-${blockId}`).focus();
+        }
+    }
+
+    closeQuickAdd(blockId) {
+        const form = document.getElementById(`quickAdd-${blockId}`);
+        if (form) {
+            form.classList.add('hidden');
+            document.getElementById(`quickValue-${blockId}`).value = '';
+            document.getElementById(`quickDesc-${blockId}`).value = '';
+        }
+    }
+
+    async saveQuickExpense(blockId) {
+        const valueInput = document.getElementById(`quickValue-${blockId}`);
+        const descInput = document.getElementById(`quickDesc-${blockId}`);
+
+        const amount = parseFloat(valueInput.value);
+        const description = descInput.value.trim() || 'Gasto';
+
+        if (!amount || amount <= 0) {
+            this.showToast('Digite um valor', 'error');
+            valueInput.focus();
+            return;
+        }
+
+        try {
+            await supabase.createTransaction(this.user.id, blockId, description, amount, this.currentMonth);
+
+            // Limpa e fecha o form
+            this.closeQuickAdd(blockId);
+
+            // Atualiza a tela
+            await this.refreshData();
+            this.showToast('Gasto adicionado!', 'success');
+
+            // Verifica limite
+            const block = this.blocks.find(b => b.id === blockId);
+            if (block && block.daily_limit > 0) {
+                const totals = this.calculateBlockTotals(block);
+                if (totals.dailyRemaining < 0) {
+                    this.showToast('ATENÇÃO: Limite estourado!', 'error');
+                } else if (totals.dailyRemaining < 20) {
+                    this.showToast(`Restam R$ ${totals.dailyRemaining.toFixed(2)} do limite`, 'warning');
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao adicionar gasto:', error);
+            this.showToast('Erro ao adicionar', 'error');
         }
     }
 
