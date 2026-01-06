@@ -1,8 +1,8 @@
 // =============================================
-// IZI Cash - Aplicação Principal
+// Zeny - Aplicação Principal
 // =============================================
 
-class IZICashApp {
+class ZenyApp {
     constructor() {
         this.authUser = null;  // Usuário do Supabase Auth
         this.user = null;      // Perfil do usuário na tabela users
@@ -913,7 +913,7 @@ class IZICashApp {
 // Inicializar app quando DOM carregar
 let app;
 document.addEventListener('DOMContentLoaded', () => {
-    app = new IZICashApp();
+    app = new ZenyApp();
 
     // Iniciar verificação de versão
     VersionChecker.init();

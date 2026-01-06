@@ -1,5 +1,5 @@
 -- =============================================
--- IZI Cash - Schema do Banco de Dados
+-- Zeny - Schema do Banco de Dados
 -- Execute este SQL no Supabase SQL Editor
 -- =============================================
 

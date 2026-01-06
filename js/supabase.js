@@ -1,5 +1,5 @@
 // =============================================
-// IZI Cash - Conexão com Supabase
+// Zeny - Conexão com Supabase
 // =============================================
 
 class SupabaseClient {

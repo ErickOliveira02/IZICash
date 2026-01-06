@@ -1,5 +1,5 @@
 // =============================================
-// IZI Cash - Configurações do Supabase
+// Zeny - Configurações do Supabase
 // EDITE AQUI com suas credenciais do Supabase
 // =============================================
 
