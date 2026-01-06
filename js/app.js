@@ -41,9 +41,6 @@ class IZICashApp {
         document.getElementById('prevMonth')?.addEventListener('click', () => this.changeMonth(-1));
         document.getElementById('nextMonth')?.addEventListener('click', () => this.changeMonth(1));
 
-        // Botão de adicionar gasto
-        document.getElementById('quickAddBtn')?.addEventListener('click', () => this.openAddExpenseModal());
-
         // Configurações
         document.getElementById('settingsBtn')?.addEventListener('click', () => this.openSettingsModal());
 
@@ -118,13 +115,11 @@ class IZICashApp {
     showSetupScreen() {
         document.getElementById('setupScreen').classList.remove('hidden');
         document.getElementById('mainContent').classList.add('hidden');
-        document.getElementById('quickAddBtn').classList.add('hidden');
     }
 
     hideSetupScreen() {
         document.getElementById('setupScreen').classList.add('hidden');
         document.getElementById('mainContent').classList.remove('hidden');
-        document.getElementById('quickAddBtn').classList.remove('hidden');
     }
 
     async createFirstBlock() {
