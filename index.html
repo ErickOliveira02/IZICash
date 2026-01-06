@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IZI Cash - Controle Financeiro</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+<body>
+    <!-- Tela de Login -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-box">
+            <h1>IZI Cash</h1>
+            <p>Controle financeiro simples</p>
+            <form id="loginForm">
+                <input
+                    type="text"
+                    id="usercodeInput"
+                    placeholder="Digite seu código"
+                    autocomplete="off"
+                    required
+                >
+                <button type="submit">Entrar</button>
+            </form>
+            <small class="login-hint">Ex: erick, maria, joao123</small>
+        </div>
+    </div>
+
+    <!-- Tela Principal -->
+    <div id="appScreen" class="hidden">
+        <!-- Header -->
+        <header class="header">
+            <h1>IZI Cash</h1>
+            <div class="header-actions">
+                <button id="settingsBtn">Config</button>
+                <button id="logoutBtn">Sair</button>
+            </div>
+        </header>
+
+        <!-- Tela de Setup (primeira vez) -->
+        <div id="setupScreen" class="setup-screen hidden">
+            <div class="setup-box">
+                <h2>Configure seu primeiro bloco</h2>
+                <p>Um bloco representa uma entrada de dinheiro (ex: salário dia 10)</p>
+
+                <div class="form-group">
+                    <label>Nome do bloco</label>
+                    <input type="text" id="setupBlockName" placeholder="Ex: Dia 10, Salário, Freelance">
+                </div>
+
+                <div class="form-group">
+                    <label>Dia de entrada (1-31)</label>
+                    <input type="number" id="setupBlockDay" min="1" max="31" placeholder="Ex: 10">
+                </div>
+
+                <div class="form-group">
+                    <label>Valor da entrada (R$)</label>
+                    <input type="number" id="setupBlockAmount" step="0.01" placeholder="Ex: 810.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Limite para gastos variáveis (opcional)</label>
+                    <input type="number" id="setupDailyLimit" step="0.01" placeholder="Ex: 100.00">
+                </div>
+
+                <button class="btn-primary" onclick="app.createFirstBlock()">Criar Bloco</button>
+            </div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div id="mainContent">
+            <!-- Seletor de Mês -->
+            <div class="month-selector">
+                <button id="prevMonth">◀</button>
+                <span id="currentMonth">Janeiro 2024</span>
+                <button id="nextMonth">▶</button>
+            </div>
+
+            <!-- Resumo -->
+            <div class="summary" id="summaryCards">
+                <!-- Gerado via JS -->
+            </div>
+
+            <!-- Blocos -->
+            <div class="blocks-container" id="blocksContainer">
+                <!-- Gerado via JS -->
+            </div>
+        </div>
+
+        <!-- Botão Flutuante -->
+        <button class="quick-add-btn" id="quickAddBtn">+</button>
+    </div>
+
+    <!-- Modal: Adicionar Gasto -->
+    <div class="modal-overlay hidden" id="addExpenseModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Adicionar Gasto</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="addExpenseForm">
+                    <div class="form-group">
+                        <label>Bloco</label>
+                        <select id="expenseBlock" required>
+                            <!-- Gerado via JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <input type="text" id="expenseDescription" placeholder="Ex: Lanche, Uber, Café" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor (R$)</label>
+                        <input type="number" id="expenseAmount" step="0.01" min="0.01" placeholder="0.00" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Adicionar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Configurações -->
+    <div class="modal-overlay hidden" id="settingsModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2>Configurações</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body" id="settingsContent">
+                <!-- Gerado via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
