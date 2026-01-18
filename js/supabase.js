@@ -129,6 +129,56 @@ class SupabaseClient {
         localStorage.removeItem('izi_user');
     }
 
+    // ========== GOOGLE OAUTH ==========
+
+    signInWithGoogle() {
+        const redirectUrl = window.location.origin + window.location.pathname;
+        const authUrl = `${this.url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
+        window.location.href = authUrl;
+    }
+
+    async handleOAuthCallback() {
+        // Verifica se há tokens no hash da URL (após redirect do Google)
+        const hash = window.location.hash;
+        if (!hash || !hash.includes('access_token')) {
+            return null;
+        }
+
+        // Parse dos parâmetros do hash
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+
+        if (!accessToken) {
+            return null;
+        }
+
+        // Salva os tokens
+        this.accessToken = accessToken;
+        localStorage.setItem('izi_access_token', accessToken);
+        if (refreshToken) {
+            localStorage.setItem('izi_refresh_token', refreshToken);
+        }
+
+        // Limpa o hash da URL
+        history.replaceState(null, '', window.location.pathname);
+
+        // Busca dados do usuário
+        const response = await fetch(`${this.url}/auth/v1/user`, {
+            headers: {
+                'apikey': this.key,
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Erro ao obter dados do usuário');
+        }
+
+        const user = await response.json();
+        return { user, isOAuth: true };
+    }
+
     async resetPassword(email) {
         const response = await fetch(`${this.url}/auth/v1/recover`, {
             method: 'POST',
@@ -144,6 +194,32 @@ class SupabaseClient {
         if (!response.ok) {
             const data = await response.json();
             throw new Error(data.error_description || data.msg || 'Erro ao enviar email');
+        }
+
+        return true;
+    }
+
+    async updatePassword(newPassword) {
+        const token = localStorage.getItem('izi_access_token');
+        if (!token) {
+            throw new Error('Usuário não autenticado');
+        }
+
+        const response = await fetch(`${this.url}/auth/v1/user`, {
+            method: 'PUT',
+            headers: {
+                'apikey': this.key,
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                password: newPassword
+            })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error_description || data.msg || 'Erro ao definir senha');
         }
 
         return true;

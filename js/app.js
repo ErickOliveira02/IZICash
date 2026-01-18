@@ -20,6 +20,13 @@ class ZenyApp {
     async init() {
         this.setupEventListeners();
 
+        // Verificar se é callback do OAuth (Google)
+        const oauthResult = await supabase.handleOAuthCallback();
+        if (oauthResult && oauthResult.user) {
+            await this.handleOAuthSuccess(oauthResult.user);
+            return;
+        }
+
         // Verificar se já está logado
         const session = await supabase.getSession();
         if (session && session.user) {
@@ -46,6 +53,12 @@ class ZenyApp {
             this.forgotPassword();
         });
 
+        // Escolher username (OAuth)
+        document.getElementById('usernameForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitUsername();
+        });
+
         // Navegação do mês
         document.getElementById('prevMonth')?.addEventListener('click', () => this.changeMonth(-1));
         document.getElementById('nextMonth')?.addEventListener('click', () => this.changeMonth(1));
@@ -60,6 +73,12 @@ class ZenyApp {
         document.getElementById('addExpenseForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.addExpense();
+        });
+
+        // Modal de adicionar gasto fixo
+        document.getElementById('addFixedExpenseForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitFixedExpense();
         });
 
         // Fechar modais
@@ -82,6 +101,7 @@ class ZenyApp {
         document.getElementById('registerScreen').classList.add('hidden');
         document.getElementById('forgotScreen').classList.add('hidden');
         document.getElementById('verifyScreen').classList.add('hidden');
+        document.getElementById('usernameScreen').classList.add('hidden');
     }
 
     showRegister() {
@@ -89,6 +109,7 @@ class ZenyApp {
         document.getElementById('registerScreen').classList.remove('hidden');
         document.getElementById('forgotScreen').classList.add('hidden');
         document.getElementById('verifyScreen').classList.add('hidden');
+        document.getElementById('usernameScreen').classList.add('hidden');
     }
 
     showForgotPassword() {
@@ -96,6 +117,7 @@ class ZenyApp {
         document.getElementById('registerScreen').classList.add('hidden');
         document.getElementById('forgotScreen').classList.remove('hidden');
         document.getElementById('verifyScreen').classList.add('hidden');
+        document.getElementById('usernameScreen').classList.add('hidden');
     }
 
     showVerifyEmail(email) {
@@ -104,6 +126,15 @@ class ZenyApp {
         document.getElementById('registerScreen').classList.add('hidden');
         document.getElementById('forgotScreen').classList.add('hidden');
         document.getElementById('verifyScreen').classList.remove('hidden');
+        document.getElementById('usernameScreen').classList.add('hidden');
+    }
+
+    showUsernameScreen() {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('registerScreen').classList.add('hidden');
+        document.getElementById('forgotScreen').classList.add('hidden');
+        document.getElementById('verifyScreen').classList.add('hidden');
+        document.getElementById('usernameScreen').classList.remove('hidden');
     }
 
     showApp() {
@@ -111,6 +142,7 @@ class ZenyApp {
         document.getElementById('registerScreen').classList.add('hidden');
         document.getElementById('forgotScreen').classList.add('hidden');
         document.getElementById('verifyScreen').classList.add('hidden');
+        document.getElementById('usernameScreen').classList.add('hidden');
         document.getElementById('appScreen').classList.remove('hidden');
     }
 
@@ -175,13 +207,16 @@ class ZenyApp {
         try {
             const data = await supabase.signUp(email, password, username);
 
+            // data pode ser o user direto ou {user: ...}
+            const user = data.user || data;
+
             // Verifica se precisa confirmar email
-            if (data.user && !data.user.confirmed_at) {
+            if (user && !user.confirmed_at && !user.email_confirmed_at) {
                 this.showVerifyEmail(email);
                 this.showToast('Cadastro realizado! Verifique seu email.', 'success');
-            } else if (data.user) {
+            } else if (user && user.id) {
                 // Já confirmado (ex: email auto-confirm habilitado)
-                await this.handleAuthSuccess(data.user);
+                await this.handleAuthSuccess(user);
                 this.showToast('Cadastro realizado!', 'success');
             }
         } catch (error) {
@@ -209,6 +244,113 @@ class ZenyApp {
         } catch (error) {
             console.error('Erro ao recuperar senha:', error);
             this.showToast(error.message || 'Erro ao enviar email', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // ========== GOOGLE OAUTH ==========
+
+    loginWithGoogle() {
+        supabase.signInWithGoogle();
+    }
+
+    async handleOAuthSuccess(authUser) {
+        this.authUser = authUser;
+
+        // Verifica se usuário já tem perfil (já escolheu username antes)
+        const existingUser = await supabase.getUserByAuthId(authUser.id);
+
+        if (existingUser) {
+            // Usuário já existe, faz login normal
+            this.user = existingUser;
+            await this.loadData();
+            this.showApp();
+
+            if (this.blocks.length === 0) {
+                this.showSetupScreen();
+            } else {
+                this.hideSetupScreen();
+                this.render();
+            }
+            this.showToast('Bem-vindo de volta!', 'success');
+        } else {
+            // Novo usuário, precisa escolher username
+            this.showUsernameScreen();
+        }
+    }
+
+    updateUsernameCounter() {
+        const input = document.getElementById('chooseUsername');
+        const counter = document.getElementById('usernameCounter');
+        const length = input.value.length;
+        counter.textContent = `${length}/20`;
+
+        if (length >= 18) {
+            counter.classList.add('limit');
+        } else {
+            counter.classList.remove('limit');
+        }
+    }
+
+    async submitUsername() {
+        const username = document.getElementById('chooseUsername').value.trim();
+        const password = document.getElementById('choosePassword').value;
+        const passwordConfirm = document.getElementById('choosePasswordConfirm').value;
+
+        if (!username) {
+            this.showToast('Digite um username', 'error');
+            return;
+        }
+
+        if (username.length < 3) {
+            this.showToast('Username deve ter pelo menos 3 caracteres', 'error');
+            return;
+        }
+
+        if (!password) {
+            this.showToast('Digite uma senha', 'error');
+            return;
+        }
+
+        if (password.length < 6) {
+            this.showToast('Senha deve ter pelo menos 6 caracteres', 'error');
+            return;
+        }
+
+        if (password !== passwordConfirm) {
+            this.showToast('As senhas não coincidem', 'error');
+            return;
+        }
+
+        this.showLoading();
+
+        try {
+            // Verifica se username já existe
+            const existingEmail = await supabase.getEmailByUsername(username);
+            if (existingEmail) {
+                this.showToast('Username já está em uso', 'error');
+                this.hideLoading();
+                return;
+            }
+
+            // Atualiza a senha do usuário no Supabase Auth
+            await supabase.updatePassword(password);
+
+            // Cria perfil do usuário
+            this.user = await supabase.createUserProfile(
+                this.authUser.id,
+                this.authUser.email,
+                username
+            );
+
+            await this.loadData();
+            this.showApp();
+            this.showSetupScreen();
+            this.showToast('Conta criada com sucesso!', 'success');
+        } catch (error) {
+            console.error('Erro ao criar perfil:', error);
+            this.showToast(error.message || 'Erro ao criar perfil', 'error');
         } finally {
             this.hideLoading();
         }
@@ -810,13 +952,25 @@ class ZenyApp {
     }
 
     showAddFixedExpense(blockId) {
-        const name = prompt('Nome do gasto fixo:');
-        if (!name) return;
+        document.getElementById('fixedExpenseBlockId').value = blockId;
+        document.getElementById('fixedExpenseName').value = '';
+        document.getElementById('fixedExpenseAmount').value = '';
+        document.getElementById('addFixedExpenseModal').classList.remove('hidden');
+        document.getElementById('fixedExpenseName').focus();
+    }
 
-        const amount = prompt('Valor (0 se não souber ainda):');
-        if (amount === null) return;
+    async submitFixedExpense() {
+        const blockId = document.getElementById('fixedExpenseBlockId').value;
+        const name = document.getElementById('fixedExpenseName').value.trim();
+        const amount = parseFloat(document.getElementById('fixedExpenseAmount').value) || 0;
 
-        this.addFixedExpense(blockId, name, parseFloat(amount) || 0);
+        if (!name) {
+            this.showToast('Digite o nome do gasto', 'error');
+            return;
+        }
+
+        await this.addFixedExpense(blockId, name, amount);
+        document.getElementById('addFixedExpenseModal').classList.add('hidden');
     }
 
     async addFixedExpense(blockId, name, amount) {
