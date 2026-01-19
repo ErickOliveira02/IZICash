@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zeny - Controle Financeiro Simples</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+    <link rel="icon" href="assets/logo-icon.svg" type="image/svg+xml">
 </head>
 <body>
     <!-- Tela de Login -->
     <div id="loginScreen" class="login-screen">
         <div class="login-box">
-            <h1>Zeny</h1>
+            <div class="logo-container">
+                <img src="assets/logo-icon.svg" alt="Zeny" class="logo-icon">
+                <h1>zeny</h1>
+            </div>
             <p>Controle financeiro simples</p>
 
             <!-- Form de Login -->
@@ -54,7 +57,10 @@
     <!-- Tela de Cadastro -->
     <div id="registerScreen" class="login-screen hidden">
         <div class="login-box">
-            <h1>Criar Conta</h1>
+            <div class="logo-container">
+                <img src="assets/logo-icon.svg" alt="Zeny" class="logo-icon">
+                <h1>zeny</h1>
+            </div>
             <p>Preencha seus dados</p>
 
             <form id="registerForm">
@@ -98,7 +104,10 @@
     <!-- Tela de Recuperar Senha -->
     <div id="forgotScreen" class="login-screen hidden">
         <div class="login-box">
-            <h1>Recuperar Senha</h1>
+            <div class="logo-container">
+                <img src="assets/logo-icon.svg" alt="Zeny" class="logo-icon small">
+            </div>
+            <h2>Recuperar Senha</h2>
             <p>Digite seu email para receber o link de recuperação</p>
 
             <form id="forgotForm">
@@ -119,8 +128,10 @@
     <!-- Tela de Verificação de Email -->
     <div id="verifyScreen" class="login-screen hidden">
         <div class="login-box">
-            <div class="verify-icon">📧</div>
-            <h1>Verifique seu Email</h1>
+            <div class="logo-container">
+                <img src="assets/logo-icon.svg" alt="Zeny" class="logo-icon small">
+            </div>
+            <h2>Verifique seu Email</h2>
             <p>Enviamos um link de confirmação para:</p>
             <p class="verify-email" id="verifyEmailText">email@exemplo.com</p>
             <p class="verify-hint">Clique no link do email para ativar sua conta.</p>
@@ -131,7 +142,10 @@
     <!-- Tela de Criar Conta (Google OAuth) -->
     <div id="usernameScreen" class="login-screen hidden">
         <div class="login-box">
-            <h1>Criar Conta</h1>
+            <div class="logo-container">
+                <img src="assets/logo-icon.svg" alt="Zeny" class="logo-icon">
+                <h1>zeny</h1>
+            </div>
             <p>Defina seu username e senha</p>
 
             <form id="usernameForm">
@@ -172,7 +186,9 @@
     <div id="appScreen" class="hidden">
         <!-- Header -->
         <header class="header">
-            <h1>Zeny</h1>
+            <div class="header-logo">
+                <img src="assets/logo-icon.svg" alt="Zeny" class="header-logo-icon">
+            </div>
             <div class="header-actions">
                 <button id="settingsBtn">Config</button>
                 <button id="logoutBtn">Sair</button>

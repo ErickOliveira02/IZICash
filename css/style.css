@@ -49,8 +49,36 @@ body {
     text-align: center;
 }
 
+/* Logo Container */
+.logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.logo-icon {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 12px;
+}
+
+.logo-icon.small {
+    width: 60px;
+    height: 60px;
+}
+
 .login-box h1 {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
+    margin-bottom: 0;
+    color: var(--primary);
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    text-transform: lowercase;
+}
+
+.login-box h2 {
+    font-size: 1.4rem;
     margin-bottom: 8px;
     color: var(--primary);
 }
@@ -292,7 +320,7 @@ body {
 /* Header */
 .header {
     background: var(--bg-card);
-    padding: 16px 20px;
+    padding: 12px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -302,9 +330,14 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
-.header h1 {
-    font-size: 1.3rem;
-    color: var(--primary);
+.header-logo {
+    display: flex;
+    align-items: center;
+}
+
+.header-logo-icon {
+    width: 36px;
+    height: 36px;
 }
 
 .header-actions {
