@@ -423,6 +423,140 @@ class SupabaseClient {
     async deleteTransaction(transactionId) {
         return this.request('transactions', 'DELETE', `?id=eq.${transactionId}`);
     }
+
+    // ========== PURCHASES (Compras parceladas) ==========
+
+    async createPurchase(userId, blockId, description, totalAmount, installments, startMonthYear) {
+        const purchase = await this.request('purchases', 'POST', '', {
+            user_id: userId,
+            block_id: blockId,
+            description,
+            total_amount: totalAmount,
+            installments,
+            start_month_year: startMonthYear
+        });
+
+        const purchaseId = purchase[0].id;
+        const installmentAmount = Math.round((totalAmount / installments) * 100) / 100;
+
+        const [startYear, startMonth] = startMonthYear.split('-').map(Number);
+        const installmentRecords = [];
+
+        for (let i = 0; i < installments; i++) {
+            let month = startMonth + i;
+            let year = startYear;
+            while (month > 12) {
+                month -= 12;
+                year++;
+            }
+            const monthYear = `${year}-${String(month).padStart(2, '0')}`;
+
+            installmentRecords.push({
+                purchase_id: purchaseId,
+                installment_number: i + 1,
+                month_year: monthYear,
+                amount: installmentAmount,
+                paid: false
+            });
+        }
+
+        await this.request('purchase_installments', 'POST', '', installmentRecords);
+
+        return purchase[0];
+    }
+
+    async getPurchaseInstallments(userId, monthYear) {
+        return this.request('purchase_installments', 'GET',
+            `?month_year=eq.${monthYear}&select=*,purchases!inner(id,user_id,block_id,description,total_amount,installments)&purchases.user_id=eq.${userId}&order=created_at.asc`);
+    }
+
+    async getInstallmentsByBlock(blockId, monthYear) {
+        return this.request('purchase_installments', 'GET',
+            `?month_year=eq.${monthYear}&select=*,purchases!inner(id,user_id,block_id,description,total_amount,installments)&purchases.block_id=eq.${blockId}&order=created_at.asc`);
+    }
+
+    async toggleInstallmentPaid(installmentId, paid) {
+        return this.request('purchase_installments', 'PATCH', `?id=eq.${installmentId}`, { paid });
+    }
+
+    async deletePurchase(purchaseId) {
+        return this.request('purchases', 'DELETE', `?id=eq.${purchaseId}`);
+    }
+
+    async getPurchasesByUser(userId) {
+        return this.request('purchases', 'GET',
+            `?user_id=eq.${userId}&select=*,purchase_installments(*)&order=created_at.desc`);
+    }
+
+    // ========== BALANCE TRANSFERS ==========
+
+    async getBalanceTransfers(userId, monthYear = null) {
+        let query = `?user_id=eq.${userId}&select=*&order=created_at.desc`;
+        if (monthYear) {
+            query = `?user_id=eq.${userId}&or=(from_month_year.eq.${monthYear},to_month_year.eq.${monthYear})&select=*&order=created_at.desc`;
+        }
+        return this.request('balance_transfers', 'GET', query);
+    }
+
+    async getActiveTransfersForBlock(blockId, monthYear) {
+        return this.request('balance_transfers', 'GET',
+            `?to_block_id=eq.${blockId}&to_month_year=eq.${monthYear}&status=eq.active&select=*`);
+    }
+
+    async getOutgoingTransfersForBlock(blockId, monthYear) {
+        return this.request('balance_transfers', 'GET',
+            `?from_block_id=eq.${blockId}&from_month_year=eq.${monthYear}&status=eq.active&select=*`);
+    }
+
+    async createBalanceTransfer(userId, fromBlockId, toBlockId, fromMonthYear, toMonthYear, amount, transferType) {
+        const data = await this.request('balance_transfers', 'POST', '', {
+            user_id: userId,
+            from_block_id: fromBlockId,
+            to_block_id: toBlockId,
+            from_month_year: fromMonthYear,
+            to_month_year: toMonthYear,
+            amount,
+            transfer_type: transferType,
+            status: 'active'
+        });
+        return data[0];
+    }
+
+    async updateBalanceTransferStatus(transferId, status) {
+        return this.request('balance_transfers', 'PATCH', `?id=eq.${transferId}`, { status });
+    }
+
+    async deleteBalanceTransfer(transferId) {
+        return this.request('balance_transfers', 'DELETE', `?id=eq.${transferId}`);
+    }
+
+    // ========== PENDING TRANSFERS ==========
+
+    async getPendingTransfers(userId) {
+        return this.request('pending_transfers', 'GET',
+            `?user_id=eq.${userId}&select=*&order=created_at.asc`);
+    }
+
+    async createPendingTransfer(userId, fromBlockId, toBlockId, fromMonthYear, toMonthYear, amount, transferType) {
+        const data = await this.request('pending_transfers', 'POST', '', {
+            user_id: userId,
+            from_block_id: fromBlockId,
+            to_block_id: toBlockId,
+            from_month_year: fromMonthYear,
+            to_month_year: toMonthYear,
+            amount,
+            transfer_type: transferType
+        });
+        return data[0];
+    }
+
+    async deletePendingTransfer(transferId) {
+        return this.request('pending_transfers', 'DELETE', `?id=eq.${transferId}`);
+    }
+
+    async deleteAllPendingTransfers(userId) {
+        return this.request('pending_transfers', 'DELETE', `?user_id=eq.${userId}`);
+    }
 }
 
 // Instância global

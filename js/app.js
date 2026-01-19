@@ -10,6 +10,9 @@ class ZenyApp {
         this.fixedExpenses = {};
         this.payments = {};
         this.transactions = {};
+        this.installments = {}; // Parcelas de compras por bloco
+        this.transfers = [];    // Transferências de saldo entre blocos
+        this.pendingTransfers = []; // Transferências pendentes de confirmação
         this.currentMonth = this.getCurrentMonthYear();
 
         this.init();
@@ -272,6 +275,8 @@ class ZenyApp {
             } else {
                 this.hideSetupScreen();
                 this.render();
+                // Verifica transferências pendentes após carregar tudo
+                await this.checkPendingTransfers();
             }
             this.showToast('Bem-vindo de volta!', 'success');
         } else {
@@ -372,6 +377,8 @@ class ZenyApp {
         } else {
             this.hideSetupScreen();
             this.render();
+            // Verifica transferências pendentes após carregar tudo
+            await this.checkPendingTransfers();
         }
     }
 
@@ -383,6 +390,9 @@ class ZenyApp {
         this.fixedExpenses = {};
         this.payments = {};
         this.transactions = {};
+        this.installments = {};
+        this.transfers = [];
+        this.pendingTransfers = [];
 
         document.getElementById('appScreen').classList.add('hidden');
         this.showLogin();
@@ -390,6 +400,279 @@ class ZenyApp {
         // Limpar campos
         document.getElementById('loginEmail').value = '';
         document.getElementById('loginPassword').value = '';
+    }
+
+    // ========== TRANSFERÊNCIA DE SALDO ==========
+
+    async checkPendingTransfers() {
+        if (!this.user || this.blocks.length === 0) return;
+
+        try {
+            // Carrega transferências pendentes existentes
+            this.pendingTransfers = await supabase.getPendingTransfers(this.user.id);
+
+            // Se houver pendentes, mostra o modal
+            if (this.pendingTransfers.length > 0) {
+                this.showTransferModal(this.pendingTransfers[0]);
+                return;
+            }
+
+            // Verifica se precisa criar novas transferências pendentes
+            await this.detectPendingTransfers();
+
+            // Se criou pendentes, mostra o modal
+            if (this.pendingTransfers.length > 0) {
+                this.showTransferModal(this.pendingTransfers[0]);
+            }
+        } catch (error) {
+            console.error('Erro ao verificar transferências:', error);
+        }
+    }
+
+    async detectPendingTransfers() {
+        const now = new Date();
+        const currentDay = now.getDate();
+        const currentMonthYear = this.getCurrentMonthYear();
+
+        // Ordena blocos por dia
+        const sortedBlocks = [...this.blocks].sort((a, b) => a.day_of_month - b.day_of_month);
+
+        for (let i = 0; i < sortedBlocks.length; i++) {
+            const block = sortedBlocks[i];
+
+            // Se já passou o dia deste bloco
+            if (currentDay >= block.day_of_month) {
+                // Calcula o saldo deste bloco
+                const totals = this.calculateBlockTotals(block);
+
+                // Se tem saldo (positivo ou negativo) e não foi transferido ainda
+                if (totals.saldo !== 0 && totals.transfersOut === 0) {
+                    // Verifica se já existe transfer ativo para este bloco/mês
+                    const existingTransfer = this.transfers.find(t =>
+                        t.from_block_id === block.id &&
+                        t.from_month_year === currentMonthYear &&
+                        t.status === 'active'
+                    );
+
+                    if (!existingTransfer) {
+                        // Determina o próximo bloco
+                        const nextBlockInfo = this.getNextBlock(block, sortedBlocks, currentMonthYear);
+
+                        if (nextBlockInfo) {
+                            // Se passou o dia do próximo bloco, significa que precisamos perguntar
+                            const shouldAsk = currentDay >= nextBlockInfo.block.day_of_month ||
+                                              nextBlockInfo.monthYear !== currentMonthYear;
+
+                            if (shouldAsk) {
+                                // Cria transferência pendente
+                                const transferType = totals.saldo > 0 ? 'carry_over' : 'debt';
+                                try {
+                                    const pending = await supabase.createPendingTransfer(
+                                        this.user.id,
+                                        block.id,
+                                        nextBlockInfo.block.id,
+                                        currentMonthYear,
+                                        nextBlockInfo.monthYear,
+                                        totals.saldo,
+                                        transferType
+                                    );
+                                    this.pendingTransfers.push(pending);
+                                } catch (e) {
+                                    console.error('Erro ao criar transferência pendente:', e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    getNextBlock(currentBlock, sortedBlocks, currentMonthYear) {
+        const currentIndex = sortedBlocks.findIndex(b => b.id === currentBlock.id);
+
+        // Próximo bloco no mesmo mês
+        if (currentIndex < sortedBlocks.length - 1) {
+            return {
+                block: sortedBlocks[currentIndex + 1],
+                monthYear: currentMonthYear
+            };
+        }
+
+        // Primeiro bloco do próximo mês
+        const nextMonthYear = this.incrementMonth(currentMonthYear);
+        return {
+            block: sortedBlocks[0],
+            monthYear: nextMonthYear
+        };
+    }
+
+    incrementMonth(monthYear) {
+        const [year, month] = monthYear.split('-').map(Number);
+        let newMonth = month + 1;
+        let newYear = year;
+
+        if (newMonth > 12) {
+            newMonth = 1;
+            newYear++;
+        }
+
+        return `${newYear}-${String(newMonth).padStart(2, '0')}`;
+    }
+
+    formatMonthYear(monthYear) {
+        const [year, month] = monthYear.split('-');
+        const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        return `${monthNames[parseInt(month) - 1]} ${year}`;
+    }
+
+    showTransferModal(pendingTransfer) {
+        const modal = document.getElementById('transferModal');
+        const title = document.getElementById('transferModalTitle');
+        const content = document.getElementById('transferModalContent');
+
+        const fromBlock = this.blocks.find(b => b.id === pendingTransfer.from_block_id);
+        const toBlock = this.blocks.find(b => b.id === pendingTransfer.to_block_id);
+
+        if (!fromBlock || !toBlock) {
+            console.error('Blocos não encontrados para transferência');
+            return;
+        }
+
+        const amount = parseFloat(pendingTransfer.amount);
+        const isDebt = amount < 0;
+        const absAmount = Math.abs(amount);
+
+        if (isDebt) {
+            title.textContent = 'Saldo Negativo';
+            content.innerHTML = `
+                <div class="transfer-info">
+                    <div class="block-name">${fromBlock.name}</div>
+                    <div class="month-label">${this.formatMonthYear(pendingTransfer.from_month_year)}</div>
+                    <div class="balance-amount negative">-R$ ${absAmount.toFixed(2)}</div>
+                </div>
+
+                <div class="transfer-arrow">↓</div>
+
+                <div class="transfer-destination">
+                    <div class="label">Carregar dívida para:</div>
+                    <div class="destination-block">${toBlock.name} - ${this.formatMonthYear(pendingTransfer.to_month_year)}</div>
+                </div>
+
+                <div class="transfer-buttons">
+                    <button class="btn-danger" onclick="app.confirmTransfer('${pendingTransfer.id}')">Carregar dívida</button>
+                    <button class="btn-secondary" onclick="app.cancelTransfer('${pendingTransfer.id}')">Zerar dívida</button>
+                </div>
+            `;
+        } else {
+            title.textContent = 'Transferência de Saldo';
+            content.innerHTML = `
+                <div class="transfer-info">
+                    <div class="block-name">${fromBlock.name}</div>
+                    <div class="month-label">${this.formatMonthYear(pendingTransfer.from_month_year)}</div>
+                    <div class="balance-amount positive">R$ ${absAmount.toFixed(2)}</div>
+                </div>
+
+                <div class="transfer-arrow">↓</div>
+
+                <div class="transfer-destination">
+                    <div class="label">Transferir para:</div>
+                    <div class="destination-block">${toBlock.name} - ${this.formatMonthYear(pendingTransfer.to_month_year)}</div>
+                </div>
+
+                <div class="transfer-buttons">
+                    <button class="btn-primary" onclick="app.confirmTransfer('${pendingTransfer.id}')">Transferir</button>
+                    <button class="btn-secondary" onclick="app.cancelTransfer('${pendingTransfer.id}')">Não transferir</button>
+                </div>
+            `;
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    async confirmTransfer(pendingTransferId) {
+        const pending = this.pendingTransfers.find(p => p.id === pendingTransferId);
+        if (!pending) return;
+
+        try {
+            // Cria a transferência confirmada
+            await supabase.createBalanceTransfer(
+                this.user.id,
+                pending.from_block_id,
+                pending.to_block_id,
+                pending.from_month_year,
+                pending.to_month_year,
+                pending.amount,
+                pending.transfer_type
+            );
+
+            // Remove a pendente
+            await supabase.deletePendingTransfer(pendingTransferId);
+            this.pendingTransfers = this.pendingTransfers.filter(p => p.id !== pendingTransferId);
+
+            // Fecha o modal
+            document.getElementById('transferModal').classList.add('hidden');
+
+            // Recarrega dados e verifica se há mais pendentes
+            await this.loadData();
+            this.render();
+
+            const isDebt = parseFloat(pending.amount) < 0;
+            this.showToast(isDebt ? 'Dívida carregada!' : 'Saldo transferido!', 'success');
+
+            // Verifica próxima pendente
+            if (this.pendingTransfers.length > 0) {
+                this.showTransferModal(this.pendingTransfers[0]);
+            }
+        } catch (error) {
+            console.error('Erro ao confirmar transferência:', error);
+            this.showToast('Erro ao transferir', 'error');
+        }
+    }
+
+    async cancelTransfer(pendingTransferId) {
+        const pending = this.pendingTransfers.find(p => p.id === pendingTransferId);
+        if (!pending) return;
+
+        try {
+            // Remove a pendente sem criar transferência
+            await supabase.deletePendingTransfer(pendingTransferId);
+            this.pendingTransfers = this.pendingTransfers.filter(p => p.id !== pendingTransferId);
+
+            // Fecha o modal
+            document.getElementById('transferModal').classList.add('hidden');
+
+            const isDebt = parseFloat(pending.amount) < 0;
+            this.showToast(isDebt ? 'Dívida zerada!' : 'Transferência cancelada', 'success');
+
+            // Verifica próxima pendente
+            if (this.pendingTransfers.length > 0) {
+                this.showTransferModal(this.pendingTransfers[0]);
+            }
+        } catch (error) {
+            console.error('Erro ao cancelar transferência:', error);
+            this.showToast('Erro ao cancelar', 'error');
+        }
+    }
+
+    async toggleTransferStatus(transferId) {
+        try {
+            const transfer = this.transfers.find(t => t.id === transferId);
+            if (!transfer) return;
+
+            const newStatus = transfer.status === 'active' ? 'cancelled' : 'active';
+            await supabase.updateBalanceTransferStatus(transferId, newStatus);
+
+            await this.loadData();
+            this.render();
+            this.openSettingsModal(); // Reabre o modal de configurações
+
+            this.showToast(newStatus === 'active' ? 'Transferência reativada!' : 'Transferência cancelada!', 'success');
+        } catch (error) {
+            console.error('Erro ao alterar status:', error);
+            this.showToast('Erro ao alterar status', 'error');
+        }
     }
 
     // ========== SETUP INICIAL ==========
@@ -438,12 +721,19 @@ class ZenyApp {
         // Carregar blocos
         this.blocks = await supabase.getBlocks(this.user.id);
 
-        // Carregar gastos fixos, pagamentos e transações de cada bloco
+        // Carregar gastos fixos, pagamentos, transações e parcelas de cada bloco
         const allExpenseIds = [];
 
         for (const block of this.blocks) {
             this.fixedExpenses[block.id] = await supabase.getFixedExpenses(block.id);
             this.transactions[block.id] = await supabase.getTransactionsByBlock(block.id, this.currentMonth);
+
+            // Carregar parcelas do mês para este bloco
+            try {
+                this.installments[block.id] = await supabase.getInstallmentsByBlock(block.id, this.currentMonth);
+            } catch (e) {
+                this.installments[block.id] = [];
+            }
 
             // Coletar IDs dos gastos fixos
             for (const exp of this.fixedExpenses[block.id]) {
@@ -459,6 +749,13 @@ class ZenyApp {
                 this.payments[p.expense_id] = p.paid;
             }
         }
+
+        // Carregar transferências de saldo
+        try {
+            this.transfers = await supabase.getBalanceTransfers(this.user.id, this.currentMonth);
+        } catch (e) {
+            this.transfers = [];
+        }
     }
 
     async refreshData() {
@@ -471,6 +768,7 @@ class ZenyApp {
     calculateBlockTotals(block) {
         const fixedExpenses = this.fixedExpenses[block.id] || [];
         const transactions = this.transactions[block.id] || [];
+        const installments = this.installments[block.id] || [];
 
         // Total de gastos fixos
         const totalFixed = fixedExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
@@ -483,30 +781,68 @@ class ZenyApp {
             return sum;
         }, 0);
 
+        // Total de parcelas do mês
+        const totalInstallments = installments.reduce((sum, inst) => sum + parseFloat(inst.amount), 0);
+
+        // Total de parcelas PAGAS
+        const totalInstallmentsPaid = installments.reduce((sum, inst) => {
+            if (inst.paid) {
+                return sum + parseFloat(inst.amount);
+            }
+            return sum;
+        }, 0);
+
         // Total de gastos variáveis
         const totalVariable = transactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
-        // Total gasto (fixos pagos + variáveis)
-        const totalGasto = totalFixedPaid + totalVariable;
+        // Transferências recebidas (aumenta saldo - pode ser positivo ou negativo)
+        const transfersIn = this.transfers.filter(t =>
+            t.to_block_id === block.id &&
+            t.to_month_year === this.currentMonth &&
+            t.status === 'active'
+        );
+        const totalTransfersIn = transfersIn.reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
-        // Saldo disponível
-        const saldo = parseFloat(block.amount) - totalGasto;
+        // Transferências enviadas (diminui saldo)
+        const transfersOut = this.transfers.filter(t =>
+            t.from_block_id === block.id &&
+            t.from_month_year === this.currentMonth &&
+            t.status === 'active'
+        );
+        const totalTransfersOut = transfersOut.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+        // Total gasto (fixos pagos + parcelas pagas + variáveis)
+        const totalGasto = totalFixedPaid + totalInstallmentsPaid + totalVariable;
+
+        // Saldo disponível (entrada + transferências recebidas - transferências enviadas - gastos)
+        const saldo = parseFloat(block.amount) + totalTransfersIn - totalTransfersOut - totalGasto;
 
         // Limite diário
         const dailyLimit = parseFloat(block.daily_limit);
         const dailyRemaining = dailyLimit - totalVariable;
+
+        // Verifica se tem dívida recebida (transferência negativa)
+        const hasDebt = totalTransfersIn < 0;
+        const debtAmount = hasDebt ? Math.abs(totalTransfersIn) : 0;
 
         return {
             entrada: parseFloat(block.amount),
             totalFixed,
             totalFixedPaid,
             totalFixedPending: totalFixed - totalFixedPaid,
+            totalInstallments,
+            totalInstallmentsPaid,
+            totalInstallmentsPending: totalInstallments - totalInstallmentsPaid,
             totalVariable,
             totalGasto,
             saldo,
             dailyLimit,
             dailyRemaining,
-            dailyPercent: dailyLimit > 0 ? Math.min((totalVariable / dailyLimit) * 100, 100) : 0
+            dailyPercent: dailyLimit > 0 ? Math.min((totalVariable / dailyLimit) * 100, 100) : 0,
+            transfersIn: totalTransfersIn,
+            transfersOut: totalTransfersOut,
+            hasDebt,
+            debtAmount
         };
     }
 
@@ -594,10 +930,19 @@ class ZenyApp {
             const totals = this.calculateBlockTotals(block);
             const fixedExpenses = this.fixedExpenses[block.id] || [];
             const transactions = this.transactions[block.id] || [];
+            const installments = this.installments[block.id] || [];
 
             // Classes de cor
             const saldoClass = totals.saldo < 0 ? 'negative' : totals.saldo < 50 ? 'warning' : '';
             const progressClass = totals.dailyPercent >= 100 ? 'danger' : totals.dailyPercent >= 80 ? 'warning' : '';
+
+            // Badges de transferência
+            let transferBadge = '';
+            if (totals.hasDebt) {
+                transferBadge = `<div class="debt-badge">Saldo devedor: -R$ ${totals.debtAmount.toFixed(2)}</div>`;
+            } else if (totals.transfersIn > 0) {
+                transferBadge = `<div class="transfer-badge">Sobra recebida: +R$ ${totals.transfersIn.toFixed(2)}</div>`;
+            }
 
             html += `
                 <div class="block" data-block-id="${block.id}">
@@ -605,6 +950,7 @@ class ZenyApp {
                         <div>
                             <div class="block-title">${block.name}</div>
                             <div class="block-subtitle">Entrada: R$ ${totals.entrada.toFixed(2)} (dia ${block.day_of_month})</div>
+                            ${transferBadge}
                         </div>
                         <div class="block-balance">
                             <label>Saldo</label>
@@ -638,6 +984,41 @@ class ZenyApp {
                                         <span class="expense-name">${exp.name}</span>
                                     </label>
                                     <span class="expense-amount">R$ ${parseFloat(exp.amount).toFixed(2)}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <div class="installments-section">
+                        <div class="installments-header">
+                            <h3>Compras/Parcelas <span class="expense-total">(${this.countPaidInstallments(installments)}/${installments.length} pagas)</span></h3>
+                            <button class="btn-add-purchase" onclick="app.openAddPurchase('${block.id}')">+ Compra</button>
+                        </div>
+
+                        <div class="purchase-form hidden" id="purchaseForm-${block.id}">
+                            <input type="text" placeholder="Descrição (ex: Óculos)" id="purchaseDesc-${block.id}" class="purchase-input">
+                            <input type="number" step="0.01" placeholder="Valor total" id="purchaseValue-${block.id}" class="purchase-input">
+                            <input type="number" min="1" max="48" placeholder="Parcelas" id="purchaseInstallments-${block.id}" class="purchase-input-small" value="1">
+                            <div class="purchase-buttons">
+                                <button class="btn-quick-save" onclick="app.savePurchase('${block.id}')">Salvar</button>
+                                <button class="btn-quick-cancel" onclick="app.closePurchaseForm('${block.id}')">X</button>
+                            </div>
+                        </div>
+
+                        ${installments.length === 0 ? '<p class="empty-text">Nenhuma parcela neste mês</p>' : ''}
+                        ${installments.map(inst => {
+                            const purchase = inst.purchases;
+                            const parcelInfo = purchase.installments > 1 ? ` (${inst.installment_number}/${purchase.installments})` : '';
+                            return `
+                                <div class="expense-item installment-item ${inst.paid ? 'paid' : ''}">
+                                    <label class="checkbox-container">
+                                        <input type="checkbox" ${inst.paid ? 'checked' : ''}
+                                            onchange="app.toggleInstallment('${inst.id}', this.checked)">
+                                        <span class="checkmark"></span>
+                                        <span class="expense-name">${purchase.description}${parcelInfo}</span>
+                                    </label>
+                                    <span class="expense-amount">R$ ${parseFloat(inst.amount).toFixed(2)}</span>
+                                    ${inst.installment_number === 1 ? `<button class="installment-delete" onclick="app.deletePurchase('${purchase.id}')">×</button>` : ''}
                                 </div>
                             `;
                         }).join('')}
@@ -679,6 +1060,110 @@ class ZenyApp {
 
     countPaidExpenses(expenses) {
         return expenses.filter(exp => this.payments[exp.id]).length;
+    }
+
+    countPaidInstallments(installments) {
+        return installments.filter(inst => inst.paid).length;
+    }
+
+    // ========== COMPRAS/PARCELAS ==========
+
+    openAddPurchase(blockId) {
+        document.querySelectorAll('.purchase-form').forEach(form => {
+            form.classList.add('hidden');
+        });
+
+        const form = document.getElementById(`purchaseForm-${blockId}`);
+        if (form) {
+            form.classList.remove('hidden');
+            document.getElementById(`purchaseDesc-${blockId}`).focus();
+        }
+    }
+
+    closePurchaseForm(blockId) {
+        const form = document.getElementById(`purchaseForm-${blockId}`);
+        if (form) {
+            form.classList.add('hidden');
+            document.getElementById(`purchaseDesc-${blockId}`).value = '';
+            document.getElementById(`purchaseValue-${blockId}`).value = '';
+            document.getElementById(`purchaseInstallments-${blockId}`).value = '1';
+        }
+    }
+
+    async savePurchase(blockId) {
+        const descInput = document.getElementById(`purchaseDesc-${blockId}`);
+        const valueInput = document.getElementById(`purchaseValue-${blockId}`);
+        const installmentsInput = document.getElementById(`purchaseInstallments-${blockId}`);
+
+        const description = descInput.value.trim();
+        const totalAmount = parseFloat(valueInput.value);
+        const installments = parseInt(installmentsInput.value) || 1;
+
+        if (!description) {
+            this.showToast('Digite uma descrição', 'error');
+            descInput.focus();
+            return;
+        }
+
+        if (!totalAmount || totalAmount <= 0) {
+            this.showToast('Digite um valor válido', 'error');
+            valueInput.focus();
+            return;
+        }
+
+        if (installments < 1 || installments > 48) {
+            this.showToast('Parcelas deve ser entre 1 e 48', 'error');
+            installmentsInput.focus();
+            return;
+        }
+
+        try {
+            await supabase.createPurchase(
+                this.user.id,
+                blockId,
+                description,
+                totalAmount,
+                installments,
+                this.currentMonth
+            );
+
+            this.closePurchaseForm(blockId);
+            await this.refreshData();
+
+            const parcelValue = (totalAmount / installments).toFixed(2);
+            if (installments > 1) {
+                this.showToast(`Compra adicionada! ${installments}x de R$ ${parcelValue}`, 'success');
+            } else {
+                this.showToast('Compra adicionada!', 'success');
+            }
+        } catch (error) {
+            console.error('Erro ao adicionar compra:', error);
+            this.showToast('Erro ao adicionar compra', 'error');
+        }
+    }
+
+    async toggleInstallment(installmentId, paid) {
+        try {
+            await supabase.toggleInstallmentPaid(installmentId, paid);
+            await this.refreshData();
+            this.showToast(paid ? 'Parcela paga!' : 'Parcela desmarcada', 'success');
+        } catch (error) {
+            console.error('Erro ao atualizar parcela:', error);
+            this.showToast('Erro ao atualizar', 'error');
+        }
+    }
+
+    async deletePurchase(purchaseId) {
+        if (!confirm('Excluir esta compra e todas as parcelas?')) return;
+
+        try {
+            await supabase.deletePurchase(purchaseId);
+            await this.refreshData();
+            this.showToast('Compra excluída!', 'success');
+        } catch (error) {
+            console.error('Erro ao excluir compra:', error);
+            this.showToast('Erro ao excluir', 'error');
+        }
     }
 
     // ========== AÇÕES ==========
@@ -876,6 +1361,43 @@ class ZenyApp {
                 </div>
             </div>
         `;
+
+        // Histórico de transferências
+        if (this.transfers.length > 0) {
+            html += `
+                <div class="settings-section">
+                    <h3>Histórico de Transferências</h3>
+                    <div class="transfer-history-section">
+                        ${this.transfers.map(t => {
+                            const fromBlock = this.blocks.find(b => b.id === t.from_block_id);
+                            const toBlock = this.blocks.find(b => b.id === t.to_block_id);
+                            const amount = parseFloat(t.amount);
+                            const isDebt = amount < 0;
+                            const absAmount = Math.abs(amount);
+                            const fromBlockName = fromBlock ? fromBlock.name : 'Bloco removido';
+                            const toBlockName = toBlock ? toBlock.name : 'Bloco removido';
+
+                            return `
+                                <div class="transfer-history-item">
+                                    <div class="transfer-details">
+                                        <div class="transfer-route">${fromBlockName} → ${toBlockName}</div>
+                                        <div class="transfer-date">${this.formatMonthYear(t.from_month_year)} → ${this.formatMonthYear(t.to_month_year)}</div>
+                                    </div>
+                                    <span class="transfer-amount ${isDebt ? 'negative' : 'positive'}">
+                                        ${isDebt ? '-' : '+'}R$ ${absAmount.toFixed(2)}
+                                    </span>
+                                    <span class="transfer-status ${t.status}">${t.status === 'active' ? 'Ativo' : 'Cancelado'}</span>
+                                    <button class="btn-toggle-status ${t.status === 'active' ? 'cancel' : 'reactivate'}"
+                                        onclick="app.toggleTransferStatus('${t.id}')">
+                                        ${t.status === 'active' ? 'Cancelar' : 'Reativar'}
+                                    </button>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
         container.innerHTML = html;
         modal.classList.remove('hidden');
