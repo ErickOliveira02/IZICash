@@ -48,7 +48,9 @@ const EXERCISE_DATABASE = {
             'Remada Cavalinho (T-Bar)',
             'Remada na Máquina',
             'Pulldown Unilateral',
+            'Pulldown Reto na Polia',
             'Pullover na Polia Alta',
+            'Puxada Triângulo',
             'Levantamento Terra',
             'Levantamento Terra Romeno',
             'Deadlift Sumô'
@@ -72,7 +74,8 @@ const EXERCISE_DATABASE = {
             'Crucifixo Inverso na Polia',
             'Remada Alta com Barra',
             'Remada Alta na Polia',
-            'Elevação Lateral Unilateral'
+            'Elevação Lateral Unilateral',
+            'Face Pull'
         ]
     },
     'biceps': {
@@ -400,6 +403,80 @@ const WORKOUT_TEMPLATES = {
                     { name: 'Elevação Pélvica (Hip Thrust)', sets: 3, reps: 15, category: 'pernas' },
                     { name: 'Elevação de Panturrilha em Pé', sets: 4, reps: 15, category: 'panturrilha' },
                     { name: 'Prancha Isométrica', sets: 3, reps: 45, category: 'abdomen' }
+                ]
+            }
+        ]
+    },
+    'vtaper': {
+        name: 'Shape V-Taper',
+        description: '6x por semana - Foco em costas largas e shape em V',
+        frequency: '6x',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L4 7v10l8 5 8-5V7l-8-5z"/><path d="M12 22V12"/><path d="M4 7l8 5 8-5"/></svg>',
+        days: [
+            {
+                name: 'Costas (Largura) + Bíceps',
+                letter: 'A',
+                exercises: [
+                    { name: 'Puxada Frente Pegada Aberta', sets: 4, reps: 10, category: 'costas' },
+                    { name: 'Puxada Neutra', sets: 3, reps: 10, category: 'costas' },
+                    { name: 'Pulldown Reto na Polia', sets: 3, reps: 14, category: 'costas' },
+                    { name: 'Rosca Direta com Barra', sets: 3, reps: 9, category: 'biceps' },
+                    { name: 'Rosca Alternada', sets: 3, reps: 11, category: 'biceps' }
+                ]
+            },
+            {
+                name: 'Peito + Tríceps',
+                letter: 'B',
+                exercises: [
+                    { name: 'Supino Reto com Barra', sets: 4, reps: 8, category: 'peito' },
+                    { name: 'Supino Inclinado com Halteres', sets: 3, reps: 10, category: 'peito' },
+                    { name: 'Crucifixo na Máquina (Peck Deck)', sets: 3, reps: 14, category: 'peito' },
+                    { name: 'Tríceps Pulley com Corda', sets: 3, reps: 11, category: 'triceps' },
+                    { name: 'Tríceps Testa com Barra', sets: 3, reps: 9, category: 'triceps' }
+                ]
+            },
+            {
+                name: 'Pernas (Equilíbrio)',
+                letter: 'C',
+                exercises: [
+                    { name: 'Agachamento Livre', sets: 4, reps: 8, category: 'pernas' },
+                    { name: 'Leg Press 45°', sets: 3, reps: 11, category: 'pernas' },
+                    { name: 'Cadeira Extensora', sets: 3, reps: 14, category: 'pernas' },
+                    { name: 'Mesa Flexora', sets: 3, reps: 11, category: 'pernas' },
+                    { name: 'Elevação de Panturrilha em Pé', sets: 4, reps: 16, category: 'panturrilha' }
+                ]
+            },
+            {
+                name: 'Costas (Espessura) + Ombro Posterior',
+                letter: 'D',
+                exercises: [
+                    { name: 'Puxada Triângulo', sets: 4, reps: 10, category: 'costas' },
+                    { name: 'Remada Baixa na Polia', sets: 3, reps: 10, category: 'costas' },
+                    { name: 'Remada Unilateral com Halter', sets: 3, reps: 10, category: 'costas' },
+                    { name: 'Face Pull', sets: 3, reps: 14, category: 'ombros' }
+                ]
+            },
+            {
+                name: 'Ombro (Lateral) + Braços',
+                letter: 'E',
+                exercises: [
+                    { name: 'Elevação Lateral com Halteres', sets: 4, reps: 14, category: 'ombros' },
+                    { name: 'Desenvolvimento com Halteres', sets: 3, reps: 9, category: 'ombros' },
+                    { name: 'Elevação Lateral na Polia', sets: 3, reps: 14, category: 'ombros' },
+                    { name: 'Rosca Direta com Barra', sets: 3, reps: 9, category: 'biceps' },
+                    { name: 'Tríceps Pulley com Corda', sets: 3, reps: 11, category: 'triceps' }
+                ]
+            },
+            {
+                name: 'Costas + Pump',
+                letter: 'F',
+                exercises: [
+                    { name: 'Puxada Frente Pegada Aberta', sets: 3, reps: 14, category: 'costas' },
+                    { name: 'Pulldown Reto na Polia', sets: 3, reps: 15, category: 'costas' },
+                    { name: 'Remada Baixa na Polia', sets: 3, reps: 12, category: 'costas' },
+                    { name: 'Elevação Lateral com Halteres', sets: 3, reps: 18, category: 'ombros' },
+                    { name: 'Prancha Isométrica', sets: 3, reps: 45, category: 'abdomen' },
+                    { name: 'Abdominal Tradicional', sets: 3, reps: 20, category: 'abdomen' }
                 ]
             }
         ]
