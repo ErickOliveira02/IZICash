@@ -557,6 +557,89 @@ class SupabaseClient {
     async deleteAllPendingTransfers(userId) {
         return this.request('pending_transfers', 'DELETE', `?user_id=eq.${userId}`);
     }
+
+    // ========== WORKOUT ROUTINES ==========
+
+    async getWorkoutRoutine(userId) {
+        const data = await this.request('workout_routines', 'GET',
+            `?user_id=eq.${userId}&select=*&limit=1`);
+        return data.length > 0 ? data[0] : null;
+    }
+
+    async createWorkoutRoutine(userId, name, days) {
+        const data = await this.request('workout_routines', 'POST', '', {
+            user_id: userId,
+            name,
+            days
+        });
+        return data[0];
+    }
+
+    async updateWorkoutRoutine(routineId, updates) {
+        return this.request('workout_routines', 'PATCH', `?id=eq.${routineId}`, updates);
+    }
+
+    async deleteWorkoutRoutine(routineId) {
+        return this.request('workout_routines', 'DELETE', `?id=eq.${routineId}`);
+    }
+
+    // ========== WORKOUT EXERCISES ==========
+
+    async getWorkoutExercises(routineId) {
+        return this.request('workout_exercises', 'GET',
+            `?routine_id=eq.${routineId}&select=*&order=day_of_week,order_index`);
+    }
+
+    async createWorkoutExercise(routineId, dayOfWeek, name, sets, reps, weight, orderIndex) {
+        const data = await this.request('workout_exercises', 'POST', '', {
+            routine_id: routineId,
+            day_of_week: dayOfWeek,
+            name,
+            sets,
+            reps,
+            weight,
+            order_index: orderIndex
+        });
+        return data[0];
+    }
+
+    async updateExerciseWeight(exerciseId, weight) {
+        return this.request('workout_exercises', 'PATCH', `?id=eq.${exerciseId}`, { weight });
+    }
+
+    async deleteWorkoutExercise(exerciseId) {
+        return this.request('workout_exercises', 'DELETE', `?id=eq.${exerciseId}`);
+    }
+
+    // ========== WORKOUT SESSIONS ==========
+
+    async createWorkoutSession(routineId, userId, dayOfWeek, exercisesTotal) {
+        const data = await this.request('workout_sessions', 'POST', '', {
+            routine_id: routineId,
+            user_id: userId,
+            day_of_week: dayOfWeek,
+            exercises_total: exercisesTotal
+        });
+        return data[0];
+    }
+
+    async finishWorkoutSession(sessionId, completed, exercisesCompleted) {
+        return this.request('workout_sessions', 'PATCH', `?id=eq.${sessionId}`, {
+            finished_at: new Date().toISOString(),
+            completed,
+            exercises_completed: exercisesCompleted
+        });
+    }
+
+    async getWorkoutSessions(userId) {
+        return this.request('workout_sessions', 'GET',
+            `?user_id=eq.${userId}&select=*&order=started_at.desc`);
+    }
+
+    async getWeekSessions(userId, weekStart) {
+        return this.request('workout_sessions', 'GET',
+            `?user_id=eq.${userId}&started_at=gte.${weekStart}&finished_at=not.is.null&select=day_of_week,completed`);
+    }
 }
 
 // Instância global
